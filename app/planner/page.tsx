@@ -170,7 +170,7 @@ export default function PlannerPage() {
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70">
               <div className="flex flex-col items-center gap-3 rounded-xl bg-white p-6 shadow-lg">
                 <Spinner className="h-8 w-8" />
-                <p className="text-sm text-gray-600">Beregner optimal rute…</p>
+                <p className="text-sm text-gray-600">Vent et øjeblik…</p>
               </div>
             </div>
           )}
