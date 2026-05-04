@@ -142,6 +142,18 @@ export function TourList() {
       if (days[fromIdx].schools.some((s) => s.locked)) return;
 
       if (swapping && swapTarget === overId) {
+        const swapSpecial = [days[fromIdx], days[toIdx]]
+          .flatMap((d) => d.schools)
+          .filter((s) => s.concertTypes.length > 0 && !s.isPlaceholder);
+        if (!suppressWarnings && swapSpecial.length > 0) {
+          const typeNames = [...new Set(swapSpecial.flatMap((s) => s.concertTypes))]
+            .map((t) => CONCERT_TYPE_LABELS[t])
+            .join(", ");
+          const ok = window.confirm(
+            `Denne bytte påvirker ${swapSpecial.length} koncert(er) markeret som ${typeNames}.\n\nEr du sikker?`,
+          );
+          if (!ok) return;
+        }
         swapDays(fromIdx, toIdx);
         return;
       }

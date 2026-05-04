@@ -106,6 +106,7 @@ export function parseTourPlan(buffer: ArrayBuffer | Buffer, projectWeeksMap: Map
       productionName = prod;
     }
 
+    const concertTypes = parseConcertTypes(row);
     const stop: ConcertStop = {
       schoolName,
       address: readString(row, TOUR_EXCEL_COLUMNS.address),
@@ -117,7 +118,8 @@ export function parseTourPlan(buffer: ArrayBuffer | Buffer, projectWeeksMap: Map
       concertTime,
       isEveningConcert: isEveningTime(concertTime),
       notes: readString(row, TOUR_EXCEL_COLUMNS.notes),
-      concertTypes: parseConcertTypes(row),
+      concertTypes,
+      locked: concertTypes.length > 0,
       isPlaceholder: PLACEHOLDER_PATTERN.test(schoolName),
       projectWeeks: projectWeeksMap.get(`${schoolName.toLowerCase().trim()}|${readString(row, TOUR_EXCEL_COLUMNS.municipality).toLowerCase().trim()}`) ?? "",
       lat: null,
