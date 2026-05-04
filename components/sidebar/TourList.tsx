@@ -11,6 +11,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
   type DragOverEvent,
+  type DragMoveEvent,
   type CollisionDetection,
 } from "@dnd-kit/core";
 
@@ -41,6 +42,7 @@ export function TourList() {
   const reorderWithinDay = useTourStore((s) => s.reorderWithinDay);
   const moveBetweenDays = useTourStore((s) => s.moveBetweenDays);
   const reorderDays = useTourStore((s) => s.reorderDays);
+  const swapDays = useTourStore((s) => s.swapDays);
   const setHoveredDay = useTourStore((s) => s.setHoveredDay);
   const selectedDayIndex = useTourStore((s) => s.selectedDayIndex);
   const setSelectedDay = useTourStore((s) => s.setSelectedDay);
@@ -58,6 +60,8 @@ export function TourList() {
   const [activeDragStop, setActiveDragStop] = useState<ConcertStop | null>(null);
   const [activeDragDay, setActiveDragDay] = useState<TourDay | null>(null);
   const [overDayId, setOverDayId] = useState<string | null>(null);
+  const [isSwapMode, setIsSwapMode] = useState(false);
+  const [swapTargetId, setSwapTargetId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -65,6 +69,32 @@ export function TourList() {
 
   function handleDragOver(event: DragOverEvent) {
     setOverDayId(event.over ? String(event.over.id) : null);
+    if (!event.over || !String(event.over.id).startsWith("day__")) {
+      setIsSwapMode(false);
+      setSwapTargetId(null);
+    }
+  }
+
+  function handleDragMove(event: DragMoveEvent) {
+    if (!activeDragDay || !event.over) {
+      setIsSwapMode(false);
+      setSwapTargetId(null);
+      return;
+    }
+    const overId = String(event.over.id);
+    if (!overId.startsWith("day__")) {
+      setIsSwapMode(false);
+      setSwapTargetId(null);
+      return;
+    }
+    const rect = event.over.rect;
+    const pointerY = event.activatorEvent instanceof PointerEvent
+      ? event.activatorEvent.clientY + event.delta.y
+      : 0;
+    const relY = (pointerY - rect.top) / rect.height;
+    const swap = relY >= 0.3 && relY <= 0.7;
+    setIsSwapMode(swap);
+    setSwapTargetId(swap ? overId : null);
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -91,18 +121,30 @@ export function TourList() {
     setActiveDragStop(null);
     setActiveDragDay(null);
     setOverDayId(null);
+    const swapping = isSwapMode;
+    const swapTarget = swapTargetId;
+    setIsSwapMode(false);
+    setSwapTargetId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // Dag-reordering
+    // Dag-reordering eller swap
     if (activeId.startsWith("day__")) {
       if (!overId.startsWith("day__")) return;
       const fromIdx = days.findIndex((d) => dateOnlyISO(d.date) === activeId.slice(5));
       const toIdx = days.findIndex((d) => dateOnlyISO(d.date) === overId.slice(5));
       if (fromIdx < 0 || toIdx < 0) return;
+
+      // Blokér kun hvis den dag der TRÆKKES selv har låste koncerter
+      if (days[fromIdx].schools.some((s) => s.locked)) return;
+
+      if (swapping && swapTarget === overId) {
+        swapDays(fromIdx, toIdx);
+        return;
+      }
 
       const lo = Math.min(fromIdx, toIdx);
       const hi = Math.max(fromIdx, toIdx);
@@ -119,9 +161,6 @@ export function TourList() {
         );
         if (!ok) return;
       }
-
-      // Blokér kun hvis den dag der TRÆKKES selv har låste koncerter
-      if (days[fromIdx].schools.some((s) => s.locked)) return;
 
       reorderDays(fromIdx, toIdx);
       return;
@@ -197,6 +236,18 @@ export function TourList() {
   // Nøgle = originalDayIndex → ny dato.
   const datePreviewMap = useMemo((): Map<number, Date> => {
     if (!activeDragDay || !overDayId?.startsWith("day__")) return new Map();
+
+    // Swap-mode: kun de to berørte dage bytter dato
+    if (isSwapMode && swapTargetId) {
+      const fromIdx = days.findIndex((d) => d === activeDragDay);
+      const toIdx = days.findIndex((d) => dateOnlyISO(d.date) === swapTargetId.slice(5));
+      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return new Map();
+      const result = new Map<number, Date>();
+      result.set(fromIdx, days[toIdx].date);
+      result.set(toIdx, days[fromIdx].date);
+      return result;
+    }
+
     const fromIdx = days.findIndex((d) => d === activeDragDay);
     const toIdx = days.findIndex((d) => dateOnlyISO(d.date) === overDayId.slice(5));
     if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return new Map();
@@ -228,7 +279,7 @@ export function TourList() {
       }
     }
     return result;
-  }, [activeDragDay, overDayId, days]);
+  }, [activeDragDay, overDayId, days, isSwapMode, swapTargetId]);
 
   // Ved enkelt-koncert-træk: hvilken dato ville koncerten få ved drop her?
   const concertPreviewDate = useMemo((): Date | null => {
@@ -264,6 +315,7 @@ export function TourList() {
       collisionDetection={tourCollisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
+      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
     >
       <div className="overflow-y-auto px-2 py-3">
@@ -355,6 +407,7 @@ export function TourList() {
                 onToggleHotel={() => toggleHotelRequired(dayIndex)}
                 onMouseEnter={() => setHoveredDay(dayIndex)}
                 onMouseLeave={() => setHoveredDay(null)}
+                isSwapTarget={swapTargetId === `day__${dateOnlyISO(day.date)}`}
               />
             );
           })}
@@ -366,7 +419,12 @@ export function TourList() {
           const fromIdx = days.findIndex((d) => d === activeDragDay);
           const newDate = datePreviewMap.get(fromIdx) ?? null;
           return (
-            <div className="rotate-1 scale-105 rounded-md border-2 border-indigo-300 bg-white px-3 py-2.5 opacity-95 shadow-xl">
+            <div className="relative rotate-1 scale-105 rounded-md border-2 border-indigo-300 bg-white px-3 py-2.5 opacity-95 shadow-xl">
+              {isSwapMode && (
+                <div className="absolute inset-x-0 -top-5 flex justify-center">
+                  <span className="rounded bg-orange-500 px-2 py-0.5 text-xs font-bold text-white">⇄ Byt dato</span>
+                </div>
+              )}
               <div
                 className="mb-1.5 text-xs font-semibold uppercase tracking-wide"
                 style={{ color: dayHexColor(fromIdx) }}
@@ -375,7 +433,7 @@ export function TourList() {
                   {formatDayHeader(activeDragDay.date)}
                 </span>
                 {newDate && (
-                  <span className="ml-1.5 text-indigo-500 no-underline">
+                  <span className={`ml-1.5 no-underline ${isSwapMode ? "text-orange-500" : "text-indigo-500"}`}>
                     → {formatDayHeader(newDate).split(" · ")[1]}
                   </span>
                 )}

@@ -28,6 +28,7 @@ type Props = {
   onToggleHotel: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  isSwapTarget: boolean;
 };
 
 const WEEKDAYS_DA = ["søn", "man", "tir", "ons", "tor", "fre", "lør"];
@@ -69,6 +70,7 @@ export function DayGroup({
   onToggleHotel,
   onMouseEnter,
   onMouseLeave,
+  isSwapTarget,
 }: Props) {
   const color = dayHexColor(dayIndex);
   const allLocked = day.schools.length > 0 && day.schools.every((s) => s.locked);
@@ -193,6 +195,7 @@ export function DayGroup({
       <div
         ref={setDropRef}
         className={`rounded-lg border transition-colors ${
+          isSwapTarget ? "border-orange-400 bg-orange-50 ring-2 ring-orange-300" :
           isOver ? "border-blue-300 bg-blue-50" : "border-transparent"
         }`}
       >

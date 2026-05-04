@@ -61,6 +61,7 @@ export type TourState = {
   selectHotel: (dayIndex: number, hotelId: string) => void;
   toggleHotelRequired: (dayIndex: number) => void;
   reorderDays: (fromIndex: number, toIndex: number) => void;
+  swapDays: (fromIndex: number, toIndex: number) => void;
   recalcAllKm: () => void;
   undo: () => void;
   setHoveredDay: (dayIndex: number | null) => void;
@@ -207,6 +208,25 @@ export const useTourStore = create<TourState>((set) => ({
       }
       // Re-sortér kronologisk så sidebaren aldrig viser dage i forkert dato-rækkefølge
       days.sort((a, b) => a.date.getTime() - b.date.getTime());
+      return { days, totalKm: sumTotalKm(days), selectedDayIndex: null, history };
+    });
+  },
+
+  swapDays: (fromIndex, toIndex) => {
+    if (fromIndex === toIndex) return;
+    set((state) => {
+      if (state.days[fromIndex].schools.some((s) => s.locked)) return state;
+      if (state.days[toIndex].schools.some((s) => s.locked)) return state;
+      const history = [...state.history.slice(-19), cloneDays(state.days)];
+      const days = cloneDays(state.days);
+      const dateFrom = days[fromIndex].date;
+      const dateTo = days[toIndex].date;
+      days[fromIndex].date = dateTo;
+      days[fromIndex].schools = days[fromIndex].schools.map((s) => ({ ...s, concertDate: dateTo }));
+      days[toIndex].date = dateFrom;
+      days[toIndex].schools = days[toIndex].schools.map((s) => ({ ...s, concertDate: dateFrom }));
+      days.sort((a, b) => a.date.getTime() - b.date.getTime());
+      days.forEach((_, i) => { days[i].kmThisDay = recalcDayKm(days, i, state); });
       return { days, totalKm: sumTotalKm(days), selectedDayIndex: null, history };
     });
   },
