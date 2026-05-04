@@ -20,6 +20,7 @@ const StopInput = z.object({
   projectWeeks: z.string().default(""),
   dayOrder: z.number(),
   tourOrder: z.number(),
+  locked: z.boolean().default(false),
 });
 
 const BodySchema = z.object({

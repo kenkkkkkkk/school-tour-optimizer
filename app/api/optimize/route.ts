@@ -25,6 +25,7 @@ const StopSchema = z.object({
   lng: z.number().nullable(),
   dayOrder: z.number(),
   tourOrder: z.number(),
+  locked: z.boolean().default(false),
 });
 
 const BodySchema = z.object({
