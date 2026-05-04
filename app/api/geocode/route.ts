@@ -15,7 +15,7 @@ const StopInput = z.object({
   concertTime: z.string(),
   isEveningConcert: z.boolean(),
   notes: z.string(),
-  concertTypes: z.array(z.enum(["SPI", "EFT", "LØS", "KUP"])).default([]),
+  concertTypes: z.array(z.enum(["SPI", "EFT", "LØS", "KUP", "PRØ", "FES"])).default([]),
   isPlaceholder: z.boolean().default(false),
   projectWeeks: z.string().default(""),
   dayOrder: z.number(),
