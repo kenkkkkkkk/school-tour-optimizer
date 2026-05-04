@@ -10,6 +10,8 @@ const TYPE_COLORS: Record<ConcertType, string> = {
   EFT: "bg-purple-100 text-purple-800",
   LØS: "bg-teal-100 text-teal-800",
   KUP: "bg-green-100 text-green-800",
+  PRØ: "bg-yellow-100 text-yellow-800",
+  FES: "bg-pink-100 text-pink-800",
 };
 
 type Props = {

@@ -9,13 +9,15 @@ export type GeoCoords = {
   lng: number;
 };
 
-export type ConcertType = "SPI" | "EFT" | "LØS" | "KUP";
+export type ConcertType = "SPI" | "EFT" | "LØS" | "KUP" | "PRØ" | "FES";
 
 export const CONCERT_TYPE_LABELS: Record<ConcertType, string> = {
   SPI: "Spillestedskoncert",
   EFT: "Efterskolekoncert",
   LØS: "Løssalgskoncert",
   KUP: "Kulturpakker-koncert",
+  PRØ: "Prøvekoncert",
+  FES: "Festivalkoncert",
 };
 
 /**

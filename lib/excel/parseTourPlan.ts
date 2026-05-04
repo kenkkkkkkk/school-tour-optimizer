@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 import type { ConcertStop, ConcertType } from "@/types/concert";
 
-const SPECIAL_TYPES: ConcertType[] = ["SPI", "EFT", "LØS", "KUP"];
+const SPECIAL_TYPES: ConcertType[] = ["SPI", "EFT", "LØS", "KUP", "PRØ", "FES"];
 const PLACEHOLDER_PATTERN = /^Område \d{1,2}$/i;
 
 function parseConcertTypes(row: RawTourRow): ConcertType[] {
