@@ -111,7 +111,9 @@ export function DayGroup({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: `day__${dateOnlyISO(day.date)}`, disabled: day.schools.some((s) => s.locked) });
+  // disabled=false så dagen ALTID er registreret som drop-target i dnd-kit —
+  // drag-initieringen styres i stedet via listeners på grip-knappen nedenfor.
+  } = useSortable({ id: `day__${dateOnlyISO(day.date)}` });
 
   // Droppable zone for cross-day skole-drag
   const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -135,9 +137,9 @@ export function DayGroup({
       {/* Dag-header: grip-håndtag + dag-lås + hotel-klik */}
       <div className="flex items-center">
         <button
-          {...attributes}
-          {...listeners}
-          className="flex shrink-0 cursor-grab touch-none px-1 py-1 text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+          {...(day.schools.some((s) => s.locked) ? {} : attributes)}
+          {...(day.schools.some((s) => s.locked) ? {} : listeners)}
+          className={`flex shrink-0 touch-none px-1 py-1 ${day.schools.some((s) => s.locked) ? "cursor-not-allowed opacity-30" : "cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing"}`}
           aria-label="Flyt dag"
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
