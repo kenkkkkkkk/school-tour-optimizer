@@ -67,37 +67,41 @@ export function TourList() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
-  function handleDragOver(event: DragOverEvent) {
-    setOverDayId(event.over ? String(event.over.id) : null);
-    if (!event.over || !String(event.over.id).startsWith("day__")) {
-      setIsSwapMode(false);
-      setSwapTargetId(null);
-    }
-  }
-
-  function handleDragMove(event: DragMoveEvent) {
-    if (!activeDragDay || !event.over) {
-      setIsSwapMode(false);
-      setSwapTargetId(null);
-      return;
-    }
-    const overId = String(event.over.id);
-    if (!overId.startsWith("day__")) {
+  // Fælles swap-detektions-logik — kaldt fra både onDragOver og onDragMove.
+  // onDragMove fyrer ved pointer-bevægelse; onDragOver fyrer når over-elementet
+  // skifter (også ved scroll), så begge er nødvendige for korrekt adfærd.
+  function calcSwapMode(
+    overId: string | null,
+    activatorEvent: Event,
+    delta: { x: number; y: number },
+    draggingDay: boolean,
+  ) {
+    if (!draggingDay || !overId?.startsWith("day__")) {
       setIsSwapMode(false);
       setSwapTargetId(null);
       return;
     }
-    // Brug live getBoundingClientRect — event.over.rect er cachet og forældet efter scroll
     const overEl = document.querySelector(`[data-day-id="${overId}"]`);
     if (!overEl) { setIsSwapMode(false); setSwapTargetId(null); return; }
     const rect = overEl.getBoundingClientRect();
-    const pointerY = event.activatorEvent instanceof PointerEvent
-      ? event.activatorEvent.clientY + event.delta.y
+    const pointerY = activatorEvent instanceof PointerEvent
+      ? activatorEvent.clientY + delta.y
       : 0;
     const relY = (pointerY - rect.top) / rect.height;
     const swap = relY >= 0.2 && relY <= 0.8;
     setIsSwapMode(swap);
     setSwapTargetId(swap ? overId : null);
+  }
+
+  function handleDragOver(event: DragOverEvent) {
+    const overId = event.over ? String(event.over.id) : null;
+    setOverDayId(overId);
+    calcSwapMode(overId, event.activatorEvent, event.delta, activeDragDay !== null);
+  }
+
+  function handleDragMove(event: DragMoveEvent) {
+    const overId = event.over ? String(event.over.id) : null;
+    calcSwapMode(overId, event.activatorEvent, event.delta, activeDragDay !== null);
   }
 
   function handleDragStart(event: DragStartEvent) {
