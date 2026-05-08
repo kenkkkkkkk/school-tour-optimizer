@@ -92,7 +92,7 @@ export function TourList() {
       ? event.activatorEvent.clientY + event.delta.y
       : 0;
     const relY = (pointerY - rect.top) / rect.height;
-    const swap = relY >= 0.3 && relY <= 0.7;
+    const swap = relY >= 0.2 && relY <= 0.8;
     setIsSwapMode(swap);
     setSwapTargetId(swap ? overId : null);
   }
@@ -138,9 +138,6 @@ export function TourList() {
       const toIdx = days.findIndex((d) => dateOnlyISO(d.date) === overId.slice(5));
       if (fromIdx < 0 || toIdx < 0) return;
 
-      // Blokér kun hvis den dag der TRÆKKES selv har låste koncerter
-      if (days[fromIdx].schools.some((s) => s.locked)) return;
-
       if (swapping && swapTarget === overId) {
         const swapSpecial = [days[fromIdx], days[toIdx]]
           .flatMap((d) => d.schools)
@@ -157,6 +154,9 @@ export function TourList() {
         swapDays(fromIdx, toIdx);
         return;
       }
+
+      // Reorder/push: blokér hvis den dag der TRÆKKES har låste koncerter
+      if (days[fromIdx].schools.some((s) => s.locked)) return;
 
       const lo = Math.min(fromIdx, toIdx);
       const hi = Math.max(fromIdx, toIdx);

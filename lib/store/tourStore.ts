@@ -215,8 +215,6 @@ export const useTourStore = create<TourState>((set) => ({
   swapDays: (fromIndex, toIndex) => {
     if (fromIndex === toIndex) return;
     set((state) => {
-      if (state.days[fromIndex].schools.some((s) => s.locked)) return state;
-      if (state.days[toIndex].schools.some((s) => s.locked)) return state;
       const history = [...state.history.slice(-19), cloneDays(state.days)];
       const days = cloneDays(state.days);
       const dateFrom = days[fromIndex].date;

@@ -137,9 +137,9 @@ export function DayGroup({
       {/* Dag-header: grip-håndtag + dag-lås + hotel-klik */}
       <div className="flex items-center">
         <button
-          {...(day.schools.some((s) => s.locked) ? {} : attributes)}
-          {...(day.schools.some((s) => s.locked) ? {} : listeners)}
-          className={`flex shrink-0 touch-none px-1 py-1 ${day.schools.some((s) => s.locked) ? "cursor-not-allowed opacity-30" : "cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing"}`}
+          {...attributes}
+          {...listeners}
+          className="flex shrink-0 cursor-grab touch-none px-1 py-1 text-gray-300 hover:text-gray-500 active:cursor-grabbing"
           aria-label="Flyt dag"
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
