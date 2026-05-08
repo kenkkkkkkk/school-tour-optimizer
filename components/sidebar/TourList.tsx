@@ -87,7 +87,10 @@ export function TourList() {
       setSwapTargetId(null);
       return;
     }
-    const rect = event.over.rect;
+    // Brug live getBoundingClientRect — event.over.rect er cachet og forældet efter scroll
+    const overEl = document.querySelector(`[data-day-id="${overId}"]`);
+    if (!overEl) { setIsSwapMode(false); setSwapTargetId(null); return; }
+    const rect = overEl.getBoundingClientRect();
     const pointerY = event.activatorEvent instanceof PointerEvent
       ? event.activatorEvent.clientY + event.delta.y
       : 0;

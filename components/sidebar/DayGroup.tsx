@@ -129,6 +129,7 @@ export function DayGroup({
   return (
     <div
       ref={setNodeRef}
+      data-day-id={`day__${dateOnlyISO(day.date)}`}
       style={dayStyle}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
