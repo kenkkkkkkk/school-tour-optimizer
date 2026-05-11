@@ -67,16 +67,17 @@ export function TourList() {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
-  // Fælles swap-detektions-logik — kaldt fra både onDragOver og onDragMove.
-  // onDragMove fyrer ved pointer-bevægelse; onDragOver fyrer når over-elementet
-  // skifter (også ved scroll), så begge er nødvendige for korrekt adfærd.
+  // Beregner om pointeren er i centerzone (20-80%) af target-dagen.
+  // Bruger event.active.id i stedet for activeDragDay-state for at undgå
+  // stale-closure — state-opdateringen fra handleDragStart er muligvis
+  // ikke committet endnu når handleDragOver/handleDragMove fyrer.
   function calcSwapMode(
+    activeId: string,
     overId: string | null,
     activatorEvent: Event,
     delta: { x: number; y: number },
-    draggingDay: boolean,
   ) {
-    if (!draggingDay || !overId?.startsWith("day__")) {
+    if (!activeId.startsWith("day__") || !overId?.startsWith("day__")) {
       setIsSwapMode(false);
       setSwapTargetId(null);
       return;
@@ -96,12 +97,12 @@ export function TourList() {
   function handleDragOver(event: DragOverEvent) {
     const overId = event.over ? String(event.over.id) : null;
     setOverDayId(overId);
-    calcSwapMode(overId, event.activatorEvent, event.delta, activeDragDay !== null);
+    calcSwapMode(String(event.active.id), overId, event.activatorEvent, event.delta);
   }
 
   function handleDragMove(event: DragMoveEvent) {
     const overId = event.over ? String(event.over.id) : null;
-    calcSwapMode(overId, event.activatorEvent, event.delta, activeDragDay !== null);
+    calcSwapMode(String(event.active.id), overId, event.activatorEvent, event.delta);
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -128,8 +129,6 @@ export function TourList() {
     setActiveDragStop(null);
     setActiveDragDay(null);
     setOverDayId(null);
-    const swapping = isSwapMode;
-    const swapTarget = swapTargetId;
     setIsSwapMode(false);
     setSwapTargetId(null);
     const { active, over } = event;
@@ -145,7 +144,15 @@ export function TourList() {
       const toIdx = days.findIndex((d) => dateOnlyISO(d.date) === overId.slice(5));
       if (fromIdx < 0 || toIdx < 0) return;
 
-      if (swapping && swapTarget === overId) {
+      // Genberegn swap fra event-data — læs ikke state (kan være forældet ved drop)
+      const overEl = document.querySelector(`[data-day-id="${overId}"]`);
+      const rect = overEl?.getBoundingClientRect();
+      const pointerY = event.activatorEvent instanceof PointerEvent
+        ? event.activatorEvent.clientY + event.delta.y : 0;
+      const relY = rect ? (pointerY - rect.top) / rect.height : -1;
+      const swapping = relY >= 0.2 && relY <= 0.8;
+
+      if (swapping) {
         const swapSpecial = [days[fromIdx], days[toIdx]]
           .flatMap((d) => d.schools)
           .filter((s) => s.concertTypes.length > 0 && !s.isPlaceholder);
