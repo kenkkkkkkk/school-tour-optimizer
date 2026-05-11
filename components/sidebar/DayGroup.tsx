@@ -171,20 +171,21 @@ export function DayGroup({
         {/* ⇄ Byt-knap: klik for at vælge/udføre direkte dato-byt */}
         <button
           onClick={(e) => { e.stopPropagation(); onSwapSelect(); }}
-          className={`flex shrink-0 items-center px-1 py-1 transition-colors ${
+          className={`flex shrink-0 items-center gap-0.5 rounded px-1 py-1 text-xs transition-colors ${
             swapPending
-              ? "text-orange-500 hover:text-orange-700"
+              ? "bg-orange-100 text-orange-600 hover:bg-orange-200"
               : isSwapCandidate
                 ? "text-orange-400 hover:text-orange-600"
-                : "text-gray-300 hover:text-gray-500"
+                : "text-gray-400 hover:text-gray-600"
           }`}
           title={swapPending ? "Afbryd byt" : isSwapCandidate ? "Byt dato med denne dag" : "Byt dato med en anden dag"}
           aria-label={swapPending ? "Afbryd byt" : "Byt dato"}
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M7 16V4m0 0L3 8m4-4l4 4" />
             <path d="M17 8v12m0 0l4-4m-4 4l-4-4" />
           </svg>
+          <span className="leading-none">Byt</span>
         </button>
 
         <button
