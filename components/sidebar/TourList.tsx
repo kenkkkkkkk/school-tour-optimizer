@@ -11,7 +11,6 @@ import {
   type DragEndEvent,
   type DragStartEvent,
   type DragOverEvent,
-  type DragMoveEvent,
   type CollisionDetection,
 } from "@dnd-kit/core";
 
@@ -60,68 +59,58 @@ export function TourList() {
   const [activeDragStop, setActiveDragStop] = useState<ConcertStop | null>(null);
   const [activeDragDay, setActiveDragDay] = useState<TourDay | null>(null);
   const [overDayId, setOverDayId] = useState<string | null>(null);
-  const [isSwapMode, setIsSwapMode] = useState(false);
-  const [swapTargetId, setSwapTargetId] = useState<string | null>(null);
+  // Click-baseret swap: indeks på den dag der er valgt til byt (pending)
+  const [swapPendingIdx, setSwapPendingIdx] = useState<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
-  // Beregner om pointeren er i centerzone (20-80%) af target-dagen.
-  // Bruger event.active.id i stedet for activeDragDay-state for at undgå
-  // stale-closure — state-opdateringen fra handleDragStart er muligvis
-  // ikke committet endnu når handleDragOver/handleDragMove fyrer.
-  function calcSwapMode(
-    activeId: string,
-    overId: string | null,
-    activatorEvent: Event,
-    delta: { x: number; y: number },
-  ) {
-    if (!activeId.startsWith("day__") || !overId?.startsWith("day__")) {
-      setIsSwapMode(false);
-      setSwapTargetId(null);
+  // Klik ⇄ på en dag: vælg som pending, eller udfør byt hvis en anden dag allerede er pending
+  function handleSwapSelect(dayIndex: number) {
+    if (swapPendingIdx === null) {
+      setSwapPendingIdx(dayIndex);
       return;
     }
-    const overEl = document.querySelector(`[data-day-id="${overId}"]`);
-    if (!overEl) { setIsSwapMode(false); setSwapTargetId(null); return; }
-    const rect = overEl.getBoundingClientRect();
-    const pointerY = activatorEvent instanceof PointerEvent
-      ? activatorEvent.clientY + delta.y
-      : 0;
-    const relY = (pointerY - rect.top) / rect.height;
-    const swap = relY >= 0.2 && relY <= 0.8;
-    setIsSwapMode(swap);
-    setSwapTargetId(swap ? overId : null);
+    if (swapPendingIdx === dayIndex) {
+      setSwapPendingIdx(null);
+      return;
+    }
+    const fromIdx = swapPendingIdx;
+    const toIdx = dayIndex;
+    setSwapPendingIdx(null);
+
+    const swapSpecial = [days[fromIdx], days[toIdx]]
+      .flatMap((d) => d.schools)
+      .filter((s) => s.concertTypes.length > 0 && !s.isPlaceholder);
+    if (!suppressWarnings && swapSpecial.length > 0) {
+      const typeNames = [...new Set(swapSpecial.flatMap((s) => s.concertTypes))]
+        .map((t) => CONCERT_TYPE_LABELS[t])
+        .join(", ");
+      const ok = window.confirm(
+        `Denne bytte påvirker ${swapSpecial.length} koncert(er) markeret som ${typeNames}.\n\nEr du sikker?`,
+      );
+      if (!ok) return;
+    }
+    swapDays(fromIdx, toIdx);
   }
 
   function handleDragOver(event: DragOverEvent) {
-    const overId = event.over ? String(event.over.id) : null;
-    setOverDayId(overId);
-    calcSwapMode(String(event.active.id), overId, event.activatorEvent, event.delta);
-  }
-
-  function handleDragMove(event: DragMoveEvent) {
-    const overId = event.over ? String(event.over.id) : null;
-    calcSwapMode(String(event.active.id), overId, event.activatorEvent, event.delta);
+    setOverDayId(event.over ? String(event.over.id) : null);
   }
 
   function handleDragStart(event: DragStartEvent) {
     const id = String(event.active.id);
-
     if (id.startsWith("day__")) {
       const dateKey = id.slice(5);
       setActiveDragDay(days.find((d) => dateOnlyISO(d.date) === dateKey) ?? null);
       return;
     }
-
     for (const day of days) {
       const stop = day.schools.find(
         (s) => `${s.schoolName}__${s.concertDate.toISOString()}__${s.tourOrder}` === id,
       );
-      if (stop) {
-        setActiveDragStop(stop);
-        break;
-      }
+      if (stop) { setActiveDragStop(stop); break; }
     }
   }
 
@@ -129,47 +118,19 @@ export function TourList() {
     setActiveDragStop(null);
     setActiveDragDay(null);
     setOverDayId(null);
-    setIsSwapMode(false);
-    setSwapTargetId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
     const activeId = String(active.id);
     const overId = String(over.id);
 
-    // Dag-reordering eller swap
+    // Dag-reordering (push)
     if (activeId.startsWith("day__")) {
       if (!overId.startsWith("day__")) return;
       const fromIdx = days.findIndex((d) => dateOnlyISO(d.date) === activeId.slice(5));
       const toIdx = days.findIndex((d) => dateOnlyISO(d.date) === overId.slice(5));
       if (fromIdx < 0 || toIdx < 0) return;
 
-      // Genberegn swap fra event-data — læs ikke state (kan være forældet ved drop)
-      const overEl = document.querySelector(`[data-day-id="${overId}"]`);
-      const rect = overEl?.getBoundingClientRect();
-      const pointerY = event.activatorEvent instanceof PointerEvent
-        ? event.activatorEvent.clientY + event.delta.y : 0;
-      const relY = rect ? (pointerY - rect.top) / rect.height : -1;
-      const swapping = relY >= 0.2 && relY <= 0.8;
-
-      if (swapping) {
-        const swapSpecial = [days[fromIdx], days[toIdx]]
-          .flatMap((d) => d.schools)
-          .filter((s) => s.concertTypes.length > 0 && !s.isPlaceholder);
-        if (!suppressWarnings && swapSpecial.length > 0) {
-          const typeNames = [...new Set(swapSpecial.flatMap((s) => s.concertTypes))]
-            .map((t) => CONCERT_TYPE_LABELS[t])
-            .join(", ");
-          const ok = window.confirm(
-            `Denne bytte påvirker ${swapSpecial.length} koncert(er) markeret som ${typeNames}.\n\nEr du sikker?`,
-          );
-          if (!ok) return;
-        }
-        swapDays(fromIdx, toIdx);
-        return;
-      }
-
-      // Reorder/push: blokér hvis den dag der TRÆKKES har låste koncerter
       if (days[fromIdx].schools.some((s) => s.locked)) return;
 
       const lo = Math.min(fromIdx, toIdx);
@@ -187,7 +148,6 @@ export function TourList() {
         );
         if (!ok) return;
       }
-
       reorderDays(fromIdx, toIdx);
       return;
     }
@@ -227,22 +187,17 @@ export function TourList() {
             (s) => `${s.schoolName}__${s.concertDate.toISOString()}__${s.tourOrder}` === overId,
           );
 
-      // Advar planlæggeren hvis koncerten har en særlig type
       if (!suppressWarnings && activeDragStop && activeDragStop.concertTypes.length > 0 && !activeDragStop.isPlaceholder) {
-        const labels = activeDragStop.concertTypes
-          .map((t) => CONCERT_TYPE_LABELS[t])
-          .join(", ");
+        const labels = activeDragStop.concertTypes.map((t) => CONCERT_TYPE_LABELS[t]).join(", ");
         const ok = window.confirm(
           `"${activeDragStop.schoolName}" er markeret som ${labels}.\n\nEr du sikker på, at du vil flytte den til en anden dag?`,
         );
         if (!ok) return;
       }
-
       moveBetweenDays(fromDayIndex, fromIdx, toDayIndex, toIdx >= 0 ? toIdx : 0);
     }
   }
 
-  // Beregn global start-orden pr. dag (antal skoler i alle tidligere dage)
   const globalStartOrders = days.reduce<number[]>((acc, _day, i) => {
     acc.push(i === 0 ? 0 : acc[i - 1] + days[i - 1].schools.length);
     return acc;
@@ -250,49 +205,30 @@ export function TourList() {
 
   const dayIds = days.map((d) => `day__${dateOnlyISO(d.date)}`);
 
-  // Løbende km-sum fra turnéstart frem til afslutningen af hver dag
   const cumulativeKm = days.reduce<number[]>((acc, day, i) => {
     const prev = i === 0 ? 0 : acc[i - 1];
     acc.push(Math.round((prev + day.kmThisDay) * 10) / 10);
     return acc;
   }, []);
 
-  // Beregn hvilke dage der får ny dato, hvis man dropper her.
-  // Spejler reorderDays-algoritmen: låste dage er fastpunkter, øvrige fordeler resterende datoer.
-  // Nøgle = originalDayIndex → ny dato.
+  // Preview af dato-ændringer under drag-reorder
   const datePreviewMap = useMemo((): Map<number, Date> => {
     if (!activeDragDay || !overDayId?.startsWith("day__")) return new Map();
-
-    // Swap-mode: kun de to berørte dage bytter dato
-    if (isSwapMode && swapTargetId) {
-      const fromIdx = days.findIndex((d) => d === activeDragDay);
-      const toIdx = days.findIndex((d) => dateOnlyISO(d.date) === swapTargetId.slice(5));
-      if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return new Map();
-      const result = new Map<number, Date>();
-      result.set(fromIdx, days[toIdx].date);
-      result.set(toIdx, days[fromIdx].date);
-      return result;
-    }
-
     const fromIdx = days.findIndex((d) => d === activeDragDay);
     const toIdx = days.findIndex((d) => dateOnlyISO(d.date) === overDayId.slice(5));
     if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return new Map();
     if (activeDragDay.schools.some((s) => s.locked)) return new Map();
     const lo = Math.min(fromIdx, toIdx);
     const hi = Math.max(fromIdx, toIdx);
-    // Simulér splice-operationen (samme som reorderDays i store)
     const sim = [...days];
     const [moved] = sim.splice(fromIdx, 1);
     sim.splice(toIdx, 0, moved);
-    // Find låste datoer i den simulerede range
     const lockedTimes = new Set<number>();
     for (let i = lo; i <= hi; i++) {
       if (sim[i].schools.some((s) => s.locked)) lockedTimes.add(sim[i].date.getTime());
     }
-    // Tilgængelig dato-pulje: originale datoer i range minus låste
     const available = days.slice(lo, hi + 1).map((d) => d.date)
       .filter((d) => !lockedTimes.has(d.getTime()));
-    // Byg map fra originalDayIndex → ny dato
     const result = new Map<number, Date>();
     let ai = 0;
     for (let i = lo; i <= hi; i++) {
@@ -305,9 +241,8 @@ export function TourList() {
       }
     }
     return result;
-  }, [activeDragDay, overDayId, days, isSwapMode, swapTargetId]);
+  }, [activeDragDay, overDayId, days]);
 
-  // Ved enkelt-koncert-træk: hvilken dato ville koncerten få ved drop her?
   const concertPreviewDate = useMemo((): Date | null => {
     if (!activeDragStop || !overDayId) return null;
     let targetDay: TourDay | undefined;
@@ -341,7 +276,6 @@ export function TourList() {
       collisionDetection={tourCollisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
-      onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
     >
       <div className="overflow-y-auto px-2 py-3">
@@ -405,6 +339,22 @@ export function TourList() {
           </div>
         )}
 
+        {/* Hint der viser hvilken dag der afventer byt */}
+        {swapPendingIdx !== null && (
+          <div className="mb-2 flex items-center justify-between rounded-md bg-orange-50 px-3 py-1.5 text-xs text-orange-700 ring-1 ring-orange-200">
+            <span>
+              Klik ⇄ på en anden dag for at bytte med{" "}
+              <strong>{formatDayHeader(days[swapPendingIdx].date).split(" · ")[1]}</strong>
+            </span>
+            <button
+              onClick={() => setSwapPendingIdx(null)}
+              className="ml-2 font-medium hover:text-orange-900"
+            >
+              Afbryd
+            </button>
+          </div>
+        )}
+
         <SortableContext items={dayIds} strategy={verticalListSortingStrategy}>
           {days.map((day, dayIndex) => {
             const activeHotelId = day.selectedHotelId ?? day.suggestedHotelId;
@@ -433,7 +383,9 @@ export function TourList() {
                 onToggleHotel={() => toggleHotelRequired(dayIndex)}
                 onMouseEnter={() => setHoveredDay(dayIndex)}
                 onMouseLeave={() => setHoveredDay(null)}
-                isSwapTarget={swapTargetId === `day__${dateOnlyISO(day.date)}`}
+                swapPending={swapPendingIdx === dayIndex}
+                isSwapCandidate={swapPendingIdx !== null && swapPendingIdx !== dayIndex}
+                onSwapSelect={() => handleSwapSelect(dayIndex)}
               />
             );
           })}
@@ -445,12 +397,7 @@ export function TourList() {
           const fromIdx = days.findIndex((d) => d === activeDragDay);
           const newDate = datePreviewMap.get(fromIdx) ?? null;
           return (
-            <div className="relative rotate-1 scale-105 rounded-md border-2 border-indigo-300 bg-white px-3 py-2.5 opacity-95 shadow-xl">
-              {isSwapMode && (
-                <div className="absolute inset-x-0 -top-5 flex justify-center">
-                  <span className="rounded bg-orange-500 px-2 py-0.5 text-xs font-bold text-white">⇄ Byt dato</span>
-                </div>
-              )}
+            <div className="rotate-1 scale-105 rounded-md border-2 border-indigo-300 bg-white px-3 py-2.5 opacity-95 shadow-xl">
               <div
                 className="mb-1.5 text-xs font-semibold uppercase tracking-wide"
                 style={{ color: dayHexColor(fromIdx) }}
@@ -459,7 +406,7 @@ export function TourList() {
                   {formatDayHeader(activeDragDay.date)}
                 </span>
                 {newDate && (
-                  <span className={`ml-1.5 no-underline ${isSwapMode ? "text-orange-500" : "text-indigo-500"}`}>
+                  <span className="ml-1.5 text-indigo-500 no-underline">
                     → {formatDayHeader(newDate).split(" · ")[1]}
                   </span>
                 )}

@@ -28,7 +28,9 @@ type Props = {
   onToggleHotel: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  isSwapTarget: boolean;
+  swapPending: boolean;
+  isSwapCandidate: boolean;
+  onSwapSelect: () => void;
 };
 
 const WEEKDAYS_DA = ["søn", "man", "tir", "ons", "tor", "fre", "lør"];
@@ -70,7 +72,9 @@ export function DayGroup({
   onToggleHotel,
   onMouseEnter,
   onMouseLeave,
-  isSwapTarget,
+  swapPending,
+  isSwapCandidate,
+  onSwapSelect,
 }: Props) {
   const color = dayHexColor(dayIndex);
   const allLocked = day.schools.length > 0 && day.schools.every((s) => s.locked);
@@ -133,9 +137,12 @@ export function DayGroup({
       style={dayStyle}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="mb-3"
+      className={`mb-3 rounded-lg transition-colors ${
+        swapPending ? "bg-orange-50 ring-2 ring-orange-400" :
+        isSwapCandidate ? "bg-orange-50/60 ring-1 ring-orange-200" : ""
+      }`}
     >
-      {/* Dag-header: grip-håndtag + dag-lås + hotel-klik */}
+      {/* Dag-header: grip-håndtag + dag-lås + byt-knap + hotel-klik */}
       <div className="flex items-center">
         <button
           {...attributes}
@@ -158,6 +165,25 @@ export function DayGroup({
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <path d="M18 8h-1V6A5 5 0 0 0 7 6v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2zM9 6a3 3 0 0 1 6 0v2H9V6zm9 14H6V10h12v10zm-6-3a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+          </svg>
+        </button>
+
+        {/* ⇄ Byt-knap: klik for at vælge/udføre direkte dato-byt */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onSwapSelect(); }}
+          className={`flex shrink-0 items-center px-1 py-1 transition-colors ${
+            swapPending
+              ? "text-orange-500 hover:text-orange-700"
+              : isSwapCandidate
+                ? "text-orange-400 hover:text-orange-600"
+                : "text-gray-300 hover:text-gray-500"
+          }`}
+          title={swapPending ? "Afbryd byt" : isSwapCandidate ? "Byt dato med denne dag" : "Byt dato med en anden dag"}
+          aria-label={swapPending ? "Afbryd byt" : "Byt dato"}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M7 16V4m0 0L3 8m4-4l4 4" />
+            <path d="M17 8v12m0 0l4-4m-4 4l-4-4" />
           </svg>
         </button>
 
@@ -198,7 +224,6 @@ export function DayGroup({
       <div
         ref={setDropRef}
         className={`rounded-lg border transition-colors ${
-          isSwapTarget ? "border-orange-400 bg-orange-50 ring-2 ring-orange-300" :
           isOver ? "border-blue-300 bg-blue-50" : "border-transparent"
         }`}
       >
